@@ -15,3 +15,8 @@ Is powerful enough to keep track of a separate session for each individual user
 
 If it has access to the internet there should be strict regulations set up to make sure there aren't copyright issues
 Should have a strong database to preent the need to search the internet as much
+
+
+## Model Consideration
+
+Considering using Perplexity at first because of it's versatility and interactive features. It would be interesting to at least start with this since it does well at searching the web.
