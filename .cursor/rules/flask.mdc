@@ -1,0 +1,37 @@
+---
+description: Flask code rules
+globs: /backend-flask/*
+---
+
+
+1. Always Use Application Factories
+   - Never create Flask app instances globally
+   - Use create_app() pattern to initialize your application
+   - This enables better testing and multiple instances
+   Example:
+   def create_app():
+       app = Flask(__name__)
+       # configure app
+       return app
+
+2. Properly Handle Configuration
+   - Never hardcode sensitive data (passwords, keys, etc.)
+   - Use environment variables or config files
+   - Separate configs for different environments (dev/prod/test)
+   Example:
+   app.config.from_object('config.ProductionConfig')
+   # or
+   app.config.from_envvar('APP_CONFIG_FILE')
+
+3. Structure Your Routes and Views Properly
+   - Use Blueprints to organize related routes
+   - Keep route functions focused and small
+   - Use meaningful endpoint names
+   Example:
+   from flask import Blueprint
+   users_bp = Blueprint('users', __name__)
+   
+   @users_bp.route('/users')
+   def list_users():
+       # handle user listing
+       pass
