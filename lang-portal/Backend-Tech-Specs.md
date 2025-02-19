@@ -1,12 +1,12 @@
 # Backend Technical Specs
 
-## Business Goal: 
+## Business Goal 
 A language learning school wants to build a prototype of learning portal which will act as three things:
 - Inventory of possible vocabulary that can be learned
 - Act as a  Learning record store (LRS), providing correct and wrong score on practice vocabulary
 - A unified launchpad to launch different learning apps
 
-## Tech Requirements:
+## Tech Requirements
 - Use Python Flask framework for backend
 - Use SQLite for database
 - Use Flask-RESTful for API
@@ -15,7 +15,10 @@ A language learning school wants to build a prototype of learning portal which w
 - There will be no authentification or authorization
 - Everything treated as a single user
 
-## Database Schema:
+## Database Schema
+Single sqlite database called `words.db` that will be in the root of the project folder of `backend_flask`
+
+### Tables
 words — Stores individual Spanish vocabulary words.
 - id(PK) int - Unique identifier for each word
 - spanish string - The word in Spanish
@@ -54,29 +57,203 @@ word_review_items — Tracks individual word reviews.
 
 ## API Endpoints:
 
-GET /api/dashboard/last_study_session - Returns details of the most recent study session
+### GET /api/dashboard/last_study_session
+Returns details of the most recent study session
+#### Response:
+```json
+{
+  "id": 123,
+  "activity_id": 1,
+  "activiy_name": "Typing Tutor",
+  "group_id": 1,
+  "group_name": "Core Verbs",
+  "created_at": "2024-03-15T14:30:00Z"
+}
+```
 
-GET /api/dashboard/study_progress - Returns overall learning progress statistics
+### GET /api/dashboard/study_progress
+Returns overall learning progress statistics
+#### Response:
+```json
+{
+  "total_words": 500,
+  "total_words_studied": 150
+}
+```
 
-GET /api/dashboard/quick_stats - Returns summary statistics for study performance
+### GET /api/dashboard/quick_stats
+Returns summary statistics for study performance
+#### Response:
+```json
+{
+  "total_sessions": 45,
+  "current_streak": 5
+}
+```
 
-GET /api/words - Returns list of vocabulary words
-- Pagination with 100 items per page
+### GET /api/words
+Returns list of vocabulary words with pagination (100 items per page)
+#### Response:
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "spanish": "hablar",
+      "pronunciation": "ah-BLAR",
+      "english": "to speak"
+    }
+  ],
+  "total_pages": 5,
+  "current_page": 1,
+  "total_words": 500
+}
+```
 
-GET /api/groups - Returns list of word groups
-- Pagination with 100 items per page
+### GET /api/groups
+Returns list of word groups with pagination (100 items per page)
+#### Response:
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "Core Verbs",
+      "words_count": 50
+    }
+  ],
+  "total_pages": 3,
+  "current_page": 1,
+  "total_groups": 250
+}
+```
 
-GET /api/study_activities - Returns list of study activities
+### GET /api/study_activities
+Returns list of available study activities
+#### Response:
+```json
+{
+  "activities": [
+    {
+      "id": 1,
+      "name": "Typing Tutor"
+    }
+  ]
+}
+```
 
-GET /api/study_sessions - Returns list of study sessions
-- Pagination with 100 items per page
+### GET /api/study_sessions
+Returns list of study sessions with pagination (100 items per page)
+#### Response:
+```json
+{
+  "items": [
+    {
+      "id": 123,
+      "activity_name": "Typing Tutor",
+      "group_name": "Core Verbs",
+      "start_time": "2024-03-15T14:30:00Z",
+      "end_time": "2024-03-15T14:45:00Z",
+      "review_items_count": 20
+    }
+  ],
+  "total_pages": 3,
+  "current_page": 1,
+  "total_sessions": 250
+}
+```
 
-POST /api/reset_history - Resets all study history data
+### POST /api/reset_history
+Resets all study history data
+#### Response:
+```json
+{
+  "message": "Study history has been reset",
+  "success": true
+}
+```
 
-POST /api/full_reset - Resets entire database to initial state
+### POST /api/full_reset
+Resets entire database to initial state
+#### Response:
+```json
+{
+  "message": "Database has been reset to initial state",
+  "success": true
+}
+```
 
-POST /api/study_sessions/:id/words/:word_id/review - Records a word review result
-- Required params: correct
+### POST /api/study_sessions/:id/words/:word_id/review
+Records a word review result
+#### Request Params:
+- id (int): Study session ID
+- word_id (int): Word ID
+- correct (boolean): Whether the answer was correct or not
+#### Request Payload:
+```json
+{
+  "correct": true
+}
+```
+#### Response:
+```json
+{
+  "message": "Word review recorded successfully",
+  "success": true,
+  "review": {
+    "session_id": 123,
+    "word_id": 456,
+    "correct": true,
+    "created_at": "2024-03-15T14:45:00Z"
+  }
+}
+```
+
+## Invoke Tasks 
+Invoke is a task runner that will be used to run the tasks needed for the Lang Portal
+List out possible tasks needed for the Lang Portal
+
+### Initialize Database
+This task will initialize the sqlite database called `words.db`
+
+### Migrate Database
+This task will run migrations sql files on the database
+
+Migrations will be in the `migrations` folder
+The migration files will be run in order of their file name
+The file names should look like this:
+
+```sql
+001_init.sql
+002_create_words_table.sql
+003_create_groups_table.sql
+004_create_word_groups_table.sql
+005_create_study_activities_table.sql
+006_create_study_sessions_table.sql
+007_create_word_review_items_table.sql
+```
+
+### Seed Data 
+This task will import json files and transform them into target data for our database
+
+All seed files will be in the `seeds` folder
+
+In our task we should have a DSL to specify each seed file and its expected group word name
+
+```json
+[
+  {
+    "spanish": "hola",
+    "english": "hello",
+    "pronunciation": "oh-lah",
+  },
+  {
+    "spanish": "adios",
+    "english": "goodbye",
+    "pronunciation": "ah-dyohs",
+  }
+]
+```
 
 
 

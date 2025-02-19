@@ -90,7 +90,7 @@ This page shows all the study sessions that the user has done.
         - Group Name
         - Start Time
         - End Time
-        - Number of Review Words
+        - Number of Review Items
     - Pagination with 100 items per page
 
 #### API Endpoints
