@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Typing Tutor",
+    "url": "https://example.com/typing-tutor",
+    "preview_url": "https://example.com/typing-tutor/preview.jpg"
+  },
+  {
+    "name": "Flashcards",
+    "url": "https://example.com/flashcards",
+    "preview_url": "https://example.com/flashcards/preview.jpg"
+  },
+  {
+    "name": "Memory Game",
+    "url": "https://example.com/memory-game",
+    "preview_url": "https://example.com/memory-game/preview.jpg"
+  }
+] 
