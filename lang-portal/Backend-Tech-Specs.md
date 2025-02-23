@@ -15,6 +15,31 @@ A language learning school wants to build a prototype of learning portal which w
 - There will be no authentification or authorization
 - Everything treated as a single user
 
+## Directory Structure
+
+```
+backend_flask/
+├── app.py                   # Application factory and Flask setup
+├── config.py               # Environment configurations
+├── tasks.py               # Invoke tasks for db init, migrations, and seeding
+├── requirements.txt        # Python dependencies
+│
+├── lib/                   # Shared utilities and helpers
+│   └── [Database utilities, error handling, shared code]
+│
+├── routes/               # API endpoints organized by feature
+│   └── [Dashboard, words, groups, study, admin routes]
+│
+├── migrations/          # SQL migration files
+│   └── [Numbered SQL migration files]
+│
+├── seeds/              # Seed data in JSON format
+│   └── [JSON files with Spanish vocabulary data]
+│
+└── tests/             # Test suite
+    └── [Test files matching route structure]
+```
+
 ## Database Schema
 Single sqlite database called `words.db` that will be in the root of the project folder of `backend_flask`
 
@@ -24,7 +49,6 @@ words — Stores individual Spanish vocabulary words.
 - spanish string - The word in Spanish
 - pronunciation string - Pronunciation guide
 - english string - English translation of the word
-- parts json - Word components stored in JSON format
 
 groups — Manages collections of words.
 - id(PK) int - Unique identifier for each group
