@@ -233,6 +233,36 @@ Records a word review result
 }
 ```
 
+## Added API Endpoints
+
+### Words
+- `GET /api/words/<id>` - Get a single word with its group associations
+  - Response: Word details including spanish, english, pronunciation, and groups
+  - Error: 404 if word not found
+
+### Groups
+- `GET /api/groups/<id>/words` - Get all words in a group
+  - Response: List of words with details
+  - Error: 404 if group not found
+
+### Study Sessions
+- `POST /api/study_sessions/<id>/words/<word_id>/review` - Record word review
+  - Request: `{ "correct": boolean }`
+  - Response: Review details with timestamp
+  - Error: 400 for invalid input, 500 for database errors
+
+- `GET /api/study_sessions/<id>/words` - Get words reviewed in session
+  - Response: List of words with review status
+  - Error: 404 if session not found
+
+- `GET /api/study_sessions/<id>/stats` - Get session statistics
+  - Response: Total words, correct count, accuracy percentage
+  - Error: 404 if session not found
+
+- `POST /api/study_sessions/<id>/complete` - Complete a study session
+  - Response: Updated session details
+  - Error: 400 if already completed, 404 if not found
+
 ## Invoke Tasks 
 Invoke is a task runner that will be used to run the tasks needed for the Lang Portal
 List out possible tasks needed for the Lang Portal

@@ -1,9 +1,21 @@
 # Frontend Technical Specs
 
-## Sidebar
+## Goal
+- Build the Frontend for a Spanish Language Learning web app 
+
+## Tech Stack
+- React
+- Typescript
+- Tailwind CSS
+- Shadcn UI 
+- Vite.js
+
+
+## Global Components
+### Sidebar
 This is the main navigation menu for the web app. It is used to navigate to different pages. It will be present on all pages.
 
-### Components
+#### Components
 - App name (e.g. "Lang Portal")
 - Navigation Links
     - Dashboard
@@ -13,6 +25,13 @@ This is the main navigation menu for the web app. It is used to navigate to diff
     - Study Sessions
     - Settings
 
+### Breadcrumb
+This is a breadcrumb component that will be used to navigate to the current page from the sidebar.
+
+#### Components
+- Breadcrumb Item
+    - Link to the current page
+    - Text of the current page  
 
 ## Pages
 
@@ -24,12 +43,15 @@ This page provies a summary of the user's learning activity and acts as the defa
     - shows last activity used
     - shows when it was used
     - summarizes the score of the activity
+    - Info will be contained in a card
 - Study Progress - Returns overall learning progress statistics
     - Total words studied across all study sessions
     - Percentage of words studied across all study sessions
+    - Info will be contained in a card
 - Quick Stats - Returns summary statistics for study performance
     - Total Study Sessions done
     - Study Streak 
+    - Info will be contained in a card
 
 #### API Endpoints
 GET /api/dashboard/last_study_session
@@ -57,6 +79,7 @@ This page shows all the words in the database.
 - Paginated Word List
     - Columns
         - Word in Spanish
+            - will be a link to the word details page
         - Word Pronunciation
         - Word Translation in English   
     - Pagination with 100 items per page
@@ -64,6 +87,7 @@ This page shows all the words in the database.
 #### API Endpoints
 GET /api/words
 
+GET /api/words/<id>
 
 ### Word Groups Index '/groups'
 This page shows all the word groups in the database.
@@ -77,6 +101,7 @@ This page shows all the word groups in the database.
 
 #### API Endpoints
 GET /api/groups
+GET /api/groups/<id>/words
 
 
 ### Study Sessions Index '/study_sessions'
@@ -107,6 +132,20 @@ This page shows the settings.
 POST /api/reset_history
 
 POST /api/full_reset
+
+### Word Details '/words/:id'
+This page shows the details of a word.
+
+#### Components
+- Word Details Card
+    - Word in Spanish
+    - Word Pronunciation
+- Back to Words Button - will navigate to the words index page
+
+#### API Endpoints
+GET /api/words/<id>
+
+GET /api/words
 
 
 
