@@ -30,7 +30,7 @@ def register_routes(app):
             return jsonify({
                 "id": session['id'],
                 "activity_id": session['activity_id'],
-                "activiy_name": session['activity_name'],
+                "activity_name": session['activity_name'],
                 "group_id": session['group_id'],
                 "group_name": session['group_name'],
                 "created_at": session['created_at']
@@ -70,64 +70,57 @@ def register_routes(app):
     @app.route('/api/dashboard/quick_stats')
     def quick_stats():
         try:
-            with get_db() as db:
-                cursor = db.cursor()
-                # Get total sessions
-                cursor.execute("SELECT COUNT(*) as count FROM study_sessions")
-                total_sessions = cursor.fetchone()['count']
-
-                # Calculate current streak
-                cursor.execute("""
-                    WITH daily_study AS (
-                        -- Get distinct study dates
-                        SELECT DISTINCT date(created_at) as study_date
-                        FROM study_sessions
-                    ),
-                    today_check AS (
-                        -- Check if studied today
-                        SELECT EXISTS (
-                            SELECT 1 FROM daily_study 
-                            WHERE study_date = date('now')
-                        ) as studied_today
-                    ),
-                    streak_count AS (
-                        -- Count consecutive days backwards from today/yesterday
-                        SELECT COUNT(*) as days
-                        FROM daily_study
-                        WHERE study_date >= (
-                            SELECT CASE 
-                                WHEN studied_today = 1 THEN date('now')
-                                ELSE date('now', '-1 day')
-                            END
-                            FROM today_check
-                        )
-                        AND NOT EXISTS (
-                            -- Check for any gaps in dates
-                            SELECT 1
-                            FROM generate_series(
-                                julianday(study_date),
-                                julianday(
-                                    CASE 
-                                        WHEN (SELECT studied_today FROM today_check) = 1 
-                                        THEN date('now')
-                                        ELSE date('now', '-1 day')
-                                    END
-                                ),
-                                1
-                            ) as missing_date
-                            WHERE missing_date NOT IN (
-                                SELECT julianday(study_date) FROM daily_study
-                            )
-                        )
+            db = get_db()
+            cursor = db.cursor()
+            
+            # Get total sessions
+            cursor.execute("SELECT COUNT(*) as count FROM study_sessions")
+            total_sessions = cursor.fetchone()['count']
+            
+            # Calculate current streak
+            cursor.execute("""
+                WITH RECURSIVE dates(date) AS (
+                    SELECT date('now')
+                    UNION ALL
+                    SELECT date(date, '-1 day')
+                    FROM dates
+                    WHERE date >= date('now', '-30 days')  -- Limit recursion
+                ),
+                study_dates AS (
+                    SELECT DISTINCT date(created_at) as study_date
+                    FROM study_sessions
+                    WHERE date(created_at) >= date('now', '-30 days')
+                )
+                SELECT COUNT(*) as streak
+                FROM (
+                    SELECT dates.date
+                    FROM dates
+                    LEFT JOIN study_dates ON dates.date = study_dates.study_date
+                    WHERE study_dates.study_date IS NOT NULL
+                    ORDER BY dates.date DESC
+                    LIMIT -1 OFFSET (
+                        SELECT CASE 
+                            WHEN EXISTS (
+                                SELECT 1 FROM study_dates 
+                                WHERE study_date = date('now')
+                            ) THEN 0
+                            ELSE 1
+                        END
                     )
-                    SELECT CASE 
-                        WHEN (SELECT studied_today FROM today_check) = 0 THEN 0
-                        ELSE (SELECT days FROM streak_count)
-                    END as current_streak
-                """)
-                
-                current_streak = cursor.fetchone()['current_streak']
-
+                ) streak_days
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM dates d
+                    WHERE d.date > streak_days.date
+                      AND d.date <= date('now')
+                      AND NOT EXISTS (
+                        SELECT 1 FROM study_dates
+                        WHERE study_date = d.date
+                      )
+                )
+            """)
+            current_streak = cursor.fetchone()['streak']
+            
             return jsonify({
                 "total_sessions": total_sessions,
                 "current_streak": current_streak

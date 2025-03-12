@@ -1,7 +1,7 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from config import Config
-from routes import dashboard, words, groups, study, admin
+from routes import words, groups, study, admin, dashboard
 from lib.db import init_db
 
 def create_app(config_class=Config):
@@ -24,8 +24,6 @@ def create_app(config_class=Config):
     
     return app
 
-# Create the application instance
-app = create_app()
-
 if __name__ == '__main__':
+    app = create_app()
     app.run(debug=True)
