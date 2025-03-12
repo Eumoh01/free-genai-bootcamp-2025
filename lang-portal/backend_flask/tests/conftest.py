@@ -1,12 +1,8 @@
 import pytest
 from app import create_app
-from config import Config
+from config import TestConfig
 import sqlite3
 import os
-
-class TestConfig(Config):
-    SQLITE_DB_PATH = 'test_words.db'
-    TESTING = True
 
 @pytest.fixture
 def app():
@@ -15,8 +11,8 @@ def app():
     return app
 
 @pytest.fixture
-def client(app):
-    """Create a test client"""
+def client(app, test_db):
+    """Create a test client with test database"""
     return app.test_client()
 
 @pytest.fixture
@@ -29,7 +25,13 @@ def test_db():
     Note:
         The database is automatically deleted after each test.
     """
-    db_path = 'test_words.db'
+    db_path = TestConfig.SQLITE_DB_PATH
+    
+    # Remove existing test database if it exists
+    if os.path.exists(db_path):
+        os.remove(db_path)
+    
+    # Create fresh database and tables
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
@@ -37,7 +39,7 @@ def test_db():
     cursor.executescript("""
         -- Words table stores vocabulary items
         CREATE TABLE IF NOT EXISTS words (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- Changed to AUTOINCREMENT
             spanish TEXT NOT NULL,
             pronunciation TEXT NOT NULL,
             english TEXT NOT NULL
@@ -45,14 +47,14 @@ def test_db():
         
         -- Groups organize words into categories
         CREATE TABLE IF NOT EXISTS groups (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- Changed to AUTOINCREMENT
             name TEXT NOT NULL,
             words_count INTEGER DEFAULT 0
         );
         
         -- Word-group relationships
         CREATE TABLE IF NOT EXISTS word_groups (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- Changed to AUTOINCREMENT
             word_id INTEGER NOT NULL,
             group_id INTEGER NOT NULL,
             FOREIGN KEY (word_id) REFERENCES words(id),
@@ -61,7 +63,7 @@ def test_db():
         
         -- Study activities define different learning methods
         CREATE TABLE IF NOT EXISTS study_activities (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- Changed to AUTOINCREMENT
             name TEXT NOT NULL,
             url TEXT NOT NULL,
             preview_url TEXT
@@ -69,7 +71,7 @@ def test_db():
         
         -- Study sessions track learning progress
         CREATE TABLE IF NOT EXISTS study_sessions (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- Changed to AUTOINCREMENT
             group_id INTEGER NOT NULL,
             study_activity_id INTEGER NOT NULL,
             created_at DATETIME NOT NULL,
@@ -80,7 +82,7 @@ def test_db():
         
         -- Word reviews track performance in study sessions
         CREATE TABLE IF NOT EXISTS word_review_items (
-            id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,  -- Changed to AUTOINCREMENT
             word_id INTEGER NOT NULL,
             study_session_id INTEGER NOT NULL,
             correct BOOLEAN NOT NULL,
@@ -95,19 +97,13 @@ def test_db():
     
     yield db_path
     
-    # Cleanup
+    # Clean up - remove test database after test completes
     if os.path.exists(db_path):
         os.remove(db_path)
 
 @pytest.fixture
 def seed_db(test_db):
     """Populates the test database with sample data.
-    
-    The sample data includes:
-    - Basic vocabulary words
-    - Word groups (Basic Phrases, Numbers)
-    - Study activities (Typing Tutor, Flashcards)
-    - Sample study sessions with word reviews
     
     Args:
         test_db: The test database fixture
@@ -118,37 +114,60 @@ def seed_db(test_db):
     conn = sqlite3.connect(test_db)
     cursor = conn.cursor()
     
-    # Add sample words
+    # Add sample data without specifying IDs (let SQLite auto-increment)
     cursor.executescript("""
-        INSERT INTO words (id, spanish, pronunciation, english) VALUES 
-            (1, 'hola', 'OH-lah', 'hello'),
-            (2, 'gracias', 'GRAH-see-ahs', 'thank you'),
-            (3, 'por favor', 'por fah-VOR', 'please');
+        INSERT INTO words (spanish, pronunciation, english) VALUES 
+            ('hola', 'OH-lah', 'hello'),
+            ('gracias', 'GRAH-see-ahs', 'thank you'),
+            ('por favor', 'por fah-VOR', 'please');
             
-        INSERT INTO groups (id, name) VALUES
-            (1, 'Basic Phrases'),
-            (2, 'Numbers');
+        INSERT INTO groups (name) VALUES
+            ('Basic Phrases'),
+            ('Numbers');
             
-        INSERT INTO word_groups (word_id, group_id) VALUES
-            (1, 1),
-            (2, 1),
-            (3, 1);
-            
-        INSERT INTO study_activities (id, name, url) VALUES 
-            (1, 'Typing Tutor', 'https://example.com/typing'),
-            (2, 'Flashcards', 'https://example.com/cards');
-            
-        INSERT INTO study_sessions (id, group_id, study_activity_id, created_at) VALUES
-            (1, 1, 1, datetime('now')),
-            (2, 1, 2, datetime('now', '-1 day'));
-            
-        INSERT INTO word_review_items (word_id, study_session_id, correct, created_at) VALUES
-            (1, 1, 1, datetime('now')),
-            (2, 1, 0, datetime('now')),
-            (3, 2, 1, datetime('now', '-1 day'));
-            
-        UPDATE groups SET words_count = 3 WHERE id = 1;
+        INSERT INTO study_activities (name, url) VALUES 
+            ('Typing Tutor', 'https://example.com/typing'),
+            ('Flashcards', 'https://example.com/cards');
     """)
+    
+    # Get the auto-generated IDs
+    cursor.execute("SELECT id FROM words ORDER BY id")
+    word_ids = [row[0] for row in cursor.fetchall()]
+    
+    cursor.execute("SELECT id FROM groups WHERE name='Basic Phrases'")
+    group_id = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT id FROM study_activities")
+    activity_ids = [row[0] for row in cursor.fetchall()]
+    
+    # Use the actual IDs for relationships
+    for word_id in word_ids:
+        cursor.execute("INSERT INTO word_groups (word_id, group_id) VALUES (?, ?)",
+                      (word_id, group_id))
+                
+    # Create study sessions - now create two sessions as expected by test
+    cursor.execute("""
+        INSERT INTO study_sessions (group_id, study_activity_id, created_at)
+        VALUES 
+            (?, ?, datetime('now')),
+            (?, ?, datetime('now', '-1 day'))
+    """, (group_id, activity_ids[0], group_id, activity_ids[1]))
+    
+    # Get the session IDs
+    cursor.execute("SELECT id FROM study_sessions ORDER BY created_at DESC")
+    session_ids = [row[0] for row in cursor.fetchall()]
+    
+    # Add word reviews for both sessions
+    for session_id in session_ids:
+        for word_id in word_ids:
+            cursor.execute("""
+                INSERT INTO word_review_items (word_id, study_session_id, correct, created_at)
+                VALUES (?, ?, ?, datetime('now'))
+            """, (word_id, session_id, True))
+    
+    # Update group word count
+    cursor.execute("UPDATE groups SET words_count = ? WHERE id = ?",
+                  (len(word_ids), group_id))
     
     conn.commit()
     conn.close()
