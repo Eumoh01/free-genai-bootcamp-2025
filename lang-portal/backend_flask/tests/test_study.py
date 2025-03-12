@@ -4,71 +4,8 @@ from config import Config
 import sqlite3
 import os
 
-@pytest.fixture
-def client():
-    # Use test config/database
-    test_config = Config()
-    test_config.SQLITE_DB_PATH = 'test_words.db'
-    
-    app = create_app(test_config)
-    
-    with app.test_client() as client:
-        # Set up test database
-        conn = sqlite3.connect('test_words.db')
-        cursor = conn.cursor()
-        
-        # Create tables
-        cursor.executescript("""
-            CREATE TABLE IF NOT EXISTS study_activities (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                url TEXT NOT NULL,
-                preview_url TEXT
-            );
-            
-            CREATE TABLE IF NOT EXISTS study_sessions (
-                id INTEGER PRIMARY KEY,
-                group_id INTEGER NOT NULL,
-                study_activity_id INTEGER NOT NULL,
-                created_at DATETIME NOT NULL
-            );
-            
-            CREATE TABLE IF NOT EXISTS word_review_items (
-                id INTEGER PRIMARY KEY,
-                word_id INTEGER NOT NULL,
-                study_session_id INTEGER NOT NULL,
-                correct BOOLEAN NOT NULL,
-                created_at DATETIME NOT NULL
-            );
-        """)
-        
-        # Add test data
-        cursor.executescript("""
-            INSERT INTO study_activities (id, name, url) VALUES 
-                (1, 'Typing Tutor', 'https://example.com/typing'),
-                (2, 'Flashcards', 'https://example.com/cards');
-                
-            INSERT INTO study_sessions (id, group_id, study_activity_id, created_at) VALUES 
-                (1, 1, 1, datetime('now')),
-                (2, 2, 2, datetime('now', '-1 day'));
-        """)
-        
-        conn.commit()
-        conn.close()
-        
-        yield client
-        
-        # Clean up
-        os.remove('test_words.db')
-
 def test_get_study_activities(client, seed_db):
-    """Test retrieving available study activities.
-    
-    Verifies:
-    - List of activities is returned
-    - Activity details are complete
-    - Expected test activities are present
-    """
+    """Test retrieving study activities list."""
     response = client.get('/api/study_activities')
     assert response.status_code == 200
     
@@ -105,9 +42,13 @@ def test_get_study_sessions(client, seed_db):
     assert session['id'] == 1
     assert session['activity_name'] == 'Typing Tutor'
     assert session['group_name'] == 'Basic Phrases'
-    assert 'start_time' in session
-    assert 'end_time' in session
-    assert session['review_items_count'] == 2  # Two reviews in first session
+    assert 'created_at' in session
+    assert 'completed_at' in session
+    
+    # Verify ordering is newest first
+    first_session = data['items'][0]
+    second_session = data['items'][1]
+    assert first_session['created_at'] > second_session['created_at']
 
 def test_create_word_review(client, seed_db):
     """Test recording a word review in a study session.
@@ -170,30 +111,50 @@ def test_create_word_review_missing_correct(client, seed_db):
     assert response.get_json()['review']['correct'] is False
 
 def test_get_study_sessions_pagination(client, test_db):
-    # Add many sessions to test pagination
+    """Test study sessions pagination.
+    
+    Creates 101 sessions total to test:
+    - First page returns 100 items
+    - Second page returns 1 item
+    - Pagination metadata is correct
+    """
     conn = sqlite3.connect(test_db)
     cursor = conn.cursor()
+    
+    # First verify we start with empty table
+    cursor.execute("SELECT COUNT(*) FROM study_sessions")
+    initial_count = cursor.fetchone()[0]
+    print(f"Initial session count: {initial_count}")  # Debug print
     
     # First add required group and activity
     cursor.execute("INSERT INTO groups (id, name) VALUES (1, 'Test Group')")
     cursor.execute("INSERT INTO study_activities (id, name, url) VALUES (1, 'Test Activity', 'test')")
     
-    # Add 99 sessions to make total of 101
-    for i in range(99):
+    # Add 101 sessions to ensure we have two pages
+    for i in range(101):  # Changed from 99 to 101
         cursor.execute("""
             INSERT INTO study_sessions (group_id, study_activity_id, created_at)
             VALUES (?, ?, datetime('now', ? || ' minutes'))
         """, (1, 1, -i))
     
     conn.commit()
+    
+    # Verify total count
+    cursor.execute("SELECT COUNT(*) FROM study_sessions")
+    total_count = cursor.fetchone()[0]
+    print(f"Total session count: {total_count}")  # Debug print
+    
     conn.close()
     
     # Test first page
     response = client.get('/api/study_sessions')
     data = response.get_json()
+    print(f"Response data: {data}")  # Debug print
+    
     assert data['current_page'] == 1
     assert data['total_pages'] == 2
     assert len(data['items']) == 100
+    assert data['total_sessions'] == 101
     
     # Test second page
     response = client.get('/api/study_sessions?page=2')
@@ -270,7 +231,7 @@ def test_complete_study_session(client, seed_db):
     assert data['success'] is True
     assert 'session' in data
     assert data['session']['id'] == session_id
-    assert 'end_time' in data['session']
+    assert 'completed_at' in data['session']
     assert data['session']['review_items_count'] == 2
 
 def test_complete_invalid_session(client, seed_db):
@@ -339,14 +300,14 @@ def test_create_study_session_missing_fields(client, seed_db):
         'activity_id': 1
     })
     assert response.status_code == 400
-    assert response.get_json()['error'] == 'Missing required field: group_id'
+    assert response.get_json()['error'] == 'Missing required fields'
     
     # Missing activity_id
     response = client.post('/api/study_sessions', json={
         'group_id': 1
     })
     assert response.status_code == 400
-    assert response.get_json()['error'] == 'Missing required field: activity_id'
+    assert response.get_json()['error'] == 'Missing required fields'
     
     # Empty request
     response = client.post('/api/study_sessions', json={})

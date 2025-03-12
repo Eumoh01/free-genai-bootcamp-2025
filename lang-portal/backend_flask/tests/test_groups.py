@@ -4,46 +4,6 @@ from config import Config
 import sqlite3
 import os
 
-@pytest.fixture
-def client():
-    # Use test config/database
-    test_config = Config()
-    test_config.SQLITE_DB_PATH = 'test_words.db'
-    
-    app = create_app(test_config)
-    
-    with app.test_client() as client:
-        # Set up test database
-        conn = sqlite3.connect('test_words.db')
-        cursor = conn.cursor()
-        
-        # Create tables
-        cursor.executescript("""
-            CREATE TABLE IF NOT EXISTS groups (
-                id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
-                words_count INTEGER DEFAULT 0
-            );
-        """)
-        
-        # Add test data
-        cursor.executescript("""
-            INSERT INTO groups (id, name, words_count) VALUES 
-                (1, 'Core Verbs', 10),
-                (2, 'Core Nouns', 15),
-                (3, 'Basic Phrases', 8),
-                (4, 'Numbers', 20),
-                (5, 'Colors', 12);
-        """)
-        
-        conn.commit()
-        conn.close()
-        
-        yield client
-        
-        # Clean up
-        os.remove('test_words.db')
-
 def test_get_groups_first_page(client, seed_db):
     """Test retrieving the first page of word groups.
     
@@ -72,34 +32,40 @@ def test_get_groups_first_page(client, seed_db):
     assert group['words_count'] == 3
 
 def test_get_groups_pagination(client, test_db):
-    """Test group list pagination functionality.
-    
-    Creates 101 groups total to test:
-    - First page returns 100 items
-    - Second page returns 1 item
-    - Pagination metadata is correct
-    - Groups are ordered correctly
-    """
-    # Add many groups to test pagination
+    """Test group list pagination functionality."""
     conn = sqlite3.connect(test_db)
     cursor = conn.cursor()
     
-    # Add 99 more groups to make total of 101
-    for i in range(99):
+    # First verify we start with empty table
+    cursor.execute("SELECT COUNT(*) FROM groups")
+    initial_count = cursor.fetchone()[0]
+    print(f"Initial group count: {initial_count}")  # Debug print
+    
+    # Add 101 groups for testing
+    for i in range(101):  # Changed to ensure exactly 101 groups
         cursor.execute("""
             INSERT INTO groups (name, words_count)
             VALUES (?, ?)
         """, (f'Group {i}', i % 10))
     
     conn.commit()
+    
+    # Verify total count
+    cursor.execute("SELECT COUNT(*) FROM groups")
+    total_count = cursor.fetchone()[0]
+    print(f"Total group count: {total_count}")  # Debug print
+    
     conn.close()
     
     # Test first page
     response = client.get('/api/groups')
     data = response.get_json()
+    print(f"Response data: {data}")  # Debug print
+    
     assert data['current_page'] == 1
     assert data['total_pages'] == 2
     assert len(data['items']) == 100
+    assert data['total_groups'] == 101
     
     # Test second page
     response = client.get('/api/groups?page=2')
@@ -122,7 +88,7 @@ def test_get_groups_empty_db(client, test_db):
     Verifies:
     - Returns empty list when no groups exist
     - Maintains correct response structure
-    - Total pages is 0
+    - Total pages is 1 (minimum)
     - Returns 200 status (not an error)
     """
     # Clear all groups
@@ -134,8 +100,12 @@ def test_get_groups_empty_db(client, test_db):
     
     response = client.get('/api/groups')
     assert response.status_code == 200
-    assert len(response.get_json()['items']) == 0
-    assert response.get_json()['total_pages'] == 0
+    
+    data = response.get_json()
+    assert len(data['items']) == 0  # Empty list
+    assert data['total_pages'] == 1  # Should always be at least 1 page
+    assert data['current_page'] == 1
+    assert data['total_groups'] == 0
 
 def test_get_groups_malformed_page(client, seed_db):
     response = client.get('/api/groups?page=not_a_number')

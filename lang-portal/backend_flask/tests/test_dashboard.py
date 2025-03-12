@@ -1,55 +1,6 @@
 import pytest
-from app import create_app
-from config import Config
 import sqlite3
 import os
-
-@pytest.fixture
-def client():
-    # Use test config/database
-    test_config = Config()
-    test_config.SQLITE_DB_PATH = 'test_words.db'
-    
-    app = create_app(test_config)
-    
-    with app.test_client() as client:
-        # Set up test database
-        conn = sqlite3.connect('test_words.db')
-        cursor = conn.cursor()
-        
-        # Create tables
-        cursor.executescript("""
-            CREATE TABLE IF NOT EXISTS study_sessions (
-                id INTEGER PRIMARY KEY,
-                created_at DATETIME NOT NULL
-            );
-            
-            CREATE TABLE IF NOT EXISTS word_review_items (
-                id INTEGER PRIMARY KEY,
-                word_id INTEGER NOT NULL,
-                study_session_id INTEGER NOT NULL,
-                correct BOOLEAN NOT NULL,
-                created_at DATETIME NOT NULL
-            );
-        """)
-        
-        # Add test data
-        cursor.executescript("""
-            INSERT INTO study_sessions (created_at) VALUES 
-                (date('now')),                    -- Today
-                (date('now', '-1 day')),         -- Yesterday
-                (date('now', '-2 days')),        -- 2 days ago
-                (date('now', '-3 days')),        -- 3 days ago
-                (date('now', '-5 days'));        -- Break in streak
-        """)
-        
-        conn.commit()
-        conn.close()
-        
-        yield client
-        
-        # Clean up
-        os.remove('test_words.db')
 
 def test_last_study_session(client, seed_db):
     """Test retrieving the most recent study session.
@@ -96,15 +47,24 @@ def test_study_progress(client, seed_db):
     assert data['total_words'] == 3
     assert data['total_words_studied'] == 3  # All words have been reviewed
 
-def test_quick_stats(client, seed_db):
-    """Test retrieving quick dashboard statistics.
+def test_get_quick_stats(client, seed_db):
+    """Test retrieving dashboard quick stats."""
+    # Add test data
+    conn = sqlite3.connect(seed_db)
+    cursor = conn.cursor()
     
-    Verifies:
-    - Returns total sessions count
-    - Returns current study streak
-    - Stats match seed data
-    - Streak calculation is accurate
-    """
+    # Add study sessions for streak testing
+    cursor.execute("""
+        INSERT INTO study_sessions (group_id, study_activity_id, created_at) VALUES 
+            (1, 1, date('now')),                    -- Today
+            (1, 1, date('now', '-1 day')),         -- Yesterday
+            (1, 1, date('now', '-2 days')),        -- 2 days ago
+            (1, 1, date('now', '-3 days')),        -- 3 days ago
+            (1, 1, date('now', '-5 days'))         -- Break in streak
+    """)
+    conn.commit()
+    conn.close()
+    
     response = client.get('/api/dashboard/quick_stats')
     assert response.status_code == 200
     
@@ -113,8 +73,8 @@ def test_quick_stats(client, seed_db):
     assert 'current_streak' in data
     
     # Verify counts from seed data
-    assert data['total_sessions'] == 2  # Two sessions in seed data
-    assert data['current_streak'] >= 1  # At least today's session 
+    assert data['total_sessions'] >= 5  # At least our 5 test sessions
+    assert data['current_streak'] >= 4  # Should have 4-day streak
 
 def test_get_study_stats(client, seed_db):
     """Test retrieving study statistics.
