@@ -8,41 +8,40 @@ def register_routes(app):
         try:
             with get_db() as db:
                 cursor = db.cursor()
-                # Delete all study history
-                cursor.execute("DELETE FROM word_review_items")
-                cursor.execute("DELETE FROM study_sessions")
+                cursor.executescript("""
+                    DELETE FROM word_review_items;
+                    DELETE FROM study_sessions;
+                """)
                 db.commit()
-
-            return jsonify({
-                "message": "Study history has been reset",
-                "success": True
-            })
+                
+                return jsonify({
+                    "success": True,
+                    "message": "Study history cleared"
+                })
         except sqlite3.Error as e:
             return jsonify({
                 "error": "Database error",
                 "message": str(e)
             }), 500
-
+            
     @app.route('/api/full_reset', methods=['POST'])
     def full_reset():
         try:
             with get_db() as db:
                 cursor = db.cursor()
-                # Drop all data but keep tables
-                cursor.execute("DELETE FROM word_review_items")
-                cursor.execute("DELETE FROM study_sessions")
-                cursor.execute("DELETE FROM word_groups")
-                cursor.execute("DELETE FROM words")
-                cursor.execute("DELETE FROM groups")
-                cursor.execute("DELETE FROM study_activities")
+                cursor.executescript("""
+                    DELETE FROM word_review_items;
+                    DELETE FROM study_sessions;
+                    DELETE FROM word_groups;
+                    DELETE FROM words;
+                    DELETE FROM groups;
+                """)
                 db.commit()
-
-                # TODO: Re-run seed data import
-
-            return jsonify({
-                "message": "Database has been reset to initial state",
-                "success": True
-            })
+                
+                return jsonify({
+                    "success": True,
+                    "message": "Database reset complete"
+                })
         except sqlite3.Error as e:
             return jsonify({
                 "error": "Database error",
