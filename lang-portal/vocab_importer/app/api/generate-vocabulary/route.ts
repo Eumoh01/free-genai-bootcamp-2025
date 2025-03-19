@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server"
-import OpenAI from "openai"
+import { Groq } from "groq-sdk"
 
 // Set a longer timeout for the API route
 export const maxDuration = 60
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
 })
 
 export async function POST(req: Request) {
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Invalid range. Must be one of: 1-10, 10-50, 50-100" }, { status: 400 })
     }
 
-    // Create the prompt for OpenAI
+    // Create the prompt for Groq
     const prompt = `Generate a list of ${minWords} to ${maxWords} Spanish vocabulary words related to the theme "${theme}". 
     
     For each word, provide:
@@ -67,13 +67,12 @@ export async function POST(req: Request) {
     - Include exactly between ${minWords} and ${maxWords} words
     - IMPORTANT: Return ONLY the JSON array with no additional text or explanation`
 
-    // Call OpenAI API
+    // Call Groq API
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+      const completion = await groq.chat.completions.create({
         messages: [{ role: "user", content: prompt }],
+        model: "mixtral-8x7b-32768",
         temperature: 0.7,
-        response_format: { type: "json_object" },
       })
 
       // Get the response content
@@ -108,11 +107,11 @@ export async function POST(req: Request) {
           { status: 500 },
         )
       }
-    } catch (openaiError) {
-      console.error("OpenAI API Error:", openaiError)
+    } catch (groqError) {
+      console.error("Groq API Error:", groqError)
 
-      // Return a valid JSON response for OpenAI API errors
-      return NextResponse.json({ error: "Error calling OpenAI API", details: String(openaiError) }, { status: 500 })
+      // Return a valid JSON response for Groq API errors
+      return NextResponse.json({ error: "Error calling Groq API", details: String(groqError) }, { status: 500 })
     }
   } catch (error) {
     console.error("General Error:", error)

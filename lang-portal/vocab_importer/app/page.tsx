@@ -48,9 +48,6 @@ export default function VocabularyImporter() {
       // Try to parse it as JSON
       let data
       try {
-        console.log("=======================")
-        console.log("Response text:", responseText)
-        console.log("=======================")
         data = JSON.parse(responseText)
       } catch (parseError) {
         console.error("Error parsing response:", parseError)
