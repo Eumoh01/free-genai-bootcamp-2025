@@ -160,7 +160,9 @@ Returns list of available study activities
   "activities": [
     {
       "id": 1,
-      "name": "Typing Tutor"
+      "name": "Typing Tutor",
+      "url": "https://www.typingtutor.com",
+      "preview_url": "https://www.typingtutor.com/preview.jpg"
     }
   ]
 }

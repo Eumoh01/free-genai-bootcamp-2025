@@ -101,7 +101,8 @@ This page shows all the word groups in the database.
 
 #### API Endpoints
 GET /api/groups
-GET /api/groups/<id>/words
+
+GET /api/groups/<id>
 
 
 ### Study Sessions Index '/study_sessions'
@@ -147,8 +148,22 @@ GET /api/words/<id>
 
 GET /api/words
 
+### Group Show '/groups/:id'
+This page shows the list of words in a group.
 
+#### Components
+- Paginated Word List
+    - Columns
+        - Word in Spanish
+        - Word Pronunciation
+        - Word Translation in English
+    - Pagination with 100 items per page
+- Back to Groups Button - will navigate to the groups index page
 
+#### API Endpoints
+GET /api/groups/<id>
+
+GET /api/groups
 
 
 
