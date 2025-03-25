@@ -127,8 +127,8 @@ def register_routes(app):
                 "message": str(e)
             }), 500
 
-    @app.route('/api/study_sessions/<int:id>/words/<int:word_id>/review', methods=['POST'])
-    def create_word_review(id, word_id):
+    @app.route('/api/study_sessions/<int:session_id>/words/<int:word_id>/review', methods=['POST'])
+    def create_word_review(session_id, word_id):
         try:
             # Check if request has JSON
             if not request.is_json:
@@ -136,40 +136,42 @@ def register_routes(app):
                     "error": "Invalid JSON",
                     "message": "Request must be valid JSON"
                 }), 400
-            
-            # Get and validate correct parameter
+        
+            # Get and validate correct parameter    
             if 'correct' not in request.json:
-                correct = False  # Default value
-            else:
-                correct = request.json['correct']
-                if not isinstance(correct, bool):
-                    return jsonify({
-                        "error": "Invalid correct value",
-                        "message": "correct must be a boolean"
-                    }), 400
+                return jsonify({
+                    "error": "Missing correct value",
+                    "message": "correct must be provided"
+                }), 400
+        
+            correct = request.json['correct']
+            if not isinstance(correct, bool):
+                return jsonify({
+                    "error": "Invalid correct value",
+                    "message": "correct must be a boolean"
+                }), 400     
             
             with get_db() as db:
                 cursor = db.cursor()
                 cursor.execute("""
-                    INSERT INTO word_review_items 
-                    (word_id, study_session_id, correct, created_at) 
+                    INSERT INTO word_review_items
+                    (word_id, study_session_id, correct, created_at)
                     VALUES (?, ?, ?, datetime('now'))
-                """, (word_id, id, correct))
-                
-                cursor.execute("SELECT datetime('now') as timestamp")
-                timestamp = cursor.fetchone()['timestamp']
+                """, (word_id, session_id, correct))    
+            
                 db.commit()
-
+            
             return jsonify({
                 "message": "Word review recorded successfully",
                 "success": True,
                 "review": {
-                    "session_id": id,
+                    "session_id": session_id,
                     "word_id": word_id,
                     "correct": correct,
-                    "created_at": timestamp
+                    "created_at": datetime.now().isoformat()
                 }
             })
+        
         except sqlite3.Error as e:
             return jsonify({
                 "error": "Database error",

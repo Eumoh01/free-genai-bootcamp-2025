@@ -2,21 +2,28 @@ from invoke import task
 import sqlite3
 import os
 import json
+from config import Config
 
-DB_PATH = 'words.db'
-MIGRATIONS_PATH = 'migrations'
-SEEDS_PATH = 'seeds'
+# Use the same database path as defined in config
+DB_PATH = Config.SQLITE_DB_PATH
+DB_DIR = os.path.dirname(DB_PATH)
+MIGRATIONS_PATH = os.path.join(os.path.dirname(__file__), 'migrations')
+SEEDS_PATH = os.path.join(os.path.dirname(__file__), 'seeds')
 
 @task
 def init_db(ctx):
     """Initialize a new SQLite database"""
+    # Create instance directory if it doesn't exist
+    os.makedirs(DB_DIR, exist_ok=True)
+    print(f"Ensuring directory exists: {DB_DIR}")
+    
     if os.path.exists(DB_PATH):
-        print(f"Database {DB_PATH} already exists")
+        print(f"Database already exists at: {DB_PATH}")
         return
     
     # Create empty database file
     open(DB_PATH, 'a').close()
-    print(f"Created new database: {DB_PATH}")
+    print(f"Created new database at: {DB_PATH}")
 
 @task
 def migrate(ctx):
@@ -56,8 +63,10 @@ def seed_db(ctx):
         if os.path.exists(activities_file):
             print("Processing study activities")
             with open(activities_file, 'r') as f:
-                activities = json.load(f)
+                data = json.load(f)
+                activities = data['study_activities']  # Get the nested array
                 for activity in activities:
+                    
                     cursor.execute("""
                         INSERT INTO study_activities (name, url, preview_url)
                         VALUES (?, ?, ?)
@@ -106,17 +115,6 @@ def seed_db(ctx):
                         INSERT INTO word_groups (word_id, group_id)
                         VALUES (?, ?)
                     """, (word_id, group_id))
-
-            # Update group word count
-            cursor.execute("""
-                UPDATE groups 
-                SET words_count = (
-                    SELECT COUNT(*) 
-                    FROM word_groups 
-                    WHERE group_id = ?
-                )
-                WHERE id = ?
-            """, (group_id, group_id))
 
         conn.commit()
         print("Seed data import complete!")
